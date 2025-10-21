@@ -1,0 +1,15 @@
+streamlit
+duckdb 
+pandas 
+openpyxl 
+fuzzywuzzy 
+python-Levenshtein 
+simple-salesforce 
+duckdb 
+sqlglot 
+requests 
+beautifulsoup4 
+rapidfuzz 
+ddgs
+tqdm
+numpy
