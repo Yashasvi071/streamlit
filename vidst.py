@@ -95,7 +95,7 @@ def perform_match(A_df, B_filtered, name_cols_A, name_cols_B, addr_cols_A, addr_
 # -----------------------------
 # Streamlit UI
 # -----------------------------
-st.title("📊 Fuzzy Match Tool")
+#st.title("VID extraction Tool")
 
 # File uploads
 file_A = st.file_uploader("Upload User File (A)", type=["csv", "xlsx"])
