@@ -1,5 +1,6 @@
 # app.py - Multi-tool Streamlit app with Name & Address Match,
-# Salesforce Report Automation, and Salesforce Table Joining (SQL Runner)
+# Salesforce Report Automation, Salesforce Table Joining (SQL Runner),
+# and URL Scraper & Fuzzy Matching
 #
 # pip install streamlit pandas openpyxl fuzzywuzzy python-Levenshtein simple-salesforce duckdb sqlglot requests beautifulsoup4 rapidfuzz ddgs
 
@@ -25,6 +26,16 @@ import requests
 from datetime import datetime
 import shutil
 import json
+
+# URL scraper imports (DDG + BeautifulSoup + fuzzy)
+try:
+    from ddgs import DDGS
+except Exception:
+    DDGS = None
+from bs4 import BeautifulSoup
+from urllib.parse import urlparse, unquote
+import string
+from fuzzywuzzy import fuzz
 
 # Ensure Streamlit page config
 st.set_page_config(page_title="Tools Dashboard", layout="wide")
@@ -83,12 +94,13 @@ st.sidebar.title("Select a tool")
 tool = st.sidebar.selectbox("Choose tool", [
     "-- Select --",
     "Name & Address Match",
+    "URL Scraper & Fuzzy Matching",
     "Salesforce Report Automation",
     "Salesforce Table Joining (SQL Runner)"
 ])
 
 st.title("Tools Dashboard")
-st.markdown("Select a tool from the sidebar. Implemented: Name & Address Match, Salesforce Report Automation, Salesforce Table Joining (SQL Runner).")
+st.markdown("Select a tool from the sidebar. Implemented: Name & Address Match, URL Scraper & Fuzzy Matching, Salesforce Report Automation, Salesforce Table Joining (SQL Runner).")
 
 # -------------------------
 # 1) Name & Address Match (your script)
@@ -158,21 +170,21 @@ if tool == "Name & Address Match":
     run_button = st.button("Run Matching", key="nm_run")
 
     # --- helper functions (identical logic) ---
-    import re
+    import re as _re
     from fuzzywuzzy import fuzz as _fuzz
 
     def preprocess_text(text):
         if isinstance(text, str):
             text = text.lower().strip()
-            text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
-            text = re.sub(r'\s+', ' ', text)
+            text = _re.sub(r'[^a-zA-Z0-9\s]', '', text)
+            text = _re.sub(r'\s+', ' ', text)
             return text
         return ''
 
     def extract_building_number(address):
         if not isinstance(address, str):
             return None
-        match = re.search(r"\d+", address)
+        match = _re.search(r"\d+", address)
         return match.group() if match else None
 
     def fuzzy_match_local(str1, str2):
@@ -247,7 +259,324 @@ if tool == "Name & Address Match":
             st.exception(e)
 
 # -------------------------
-# 2) Salesforce Report Automation (your script)
+# 2) URL Scraper & Fuzzy Matching
+# -------------------------
+elif tool == "URL Scraper & Fuzzy Matching":
+    st.header("📌 URL Scraper & Name/Address Matching")
+
+    # Check ddgs availability
+    try:
+        DDGS  # noqa: F841
+    except Exception:
+        st.error("Package `ddgs` not available. Install with `pip install ddgs` and restart the app.")
+        st.stop()
+
+    uploaded_file = st.file_uploader("Upload CSV/XLSX file", type=['csv','xls','xlsx'], key="url_upload")
+    script_option = st.selectbox("Choose Script", ["Select","Script 1: DuckDuckGo","Script 2: Fuzzy Matching"], key="url_script_select")
+
+    if uploaded_file is not None and script_option != "Select":
+        # load dataframe
+        try:
+            if uploaded_file.name.lower().endswith(".csv"):
+                df = pd.read_csv(uploaded_file, dtype=str).fillna("")
+            else:
+                xls = pd.ExcelFile(uploaded_file)
+                sheet = st.selectbox("Select Sheet", xls.sheet_names, key="url_sheet_select")
+                df = pd.read_excel(xls, sheet_name=sheet, dtype=str).fillna("")
+        except Exception as e:
+            st.error(f"Could not read uploaded file: {e}")
+            st.exception(e)
+            st.stop()
+
+        st.write("Columns detected:", df.columns.tolist())
+
+        # config UI
+        col1, col2 = st.columns(2)
+        with col1:
+            name_col = st.selectbox("Name Column", df.columns, key="url_name_col")
+            addr_col = st.selectbox("Address Column", df.columns, key="url_addr_col")
+        with col2:
+            url_boost = st.checkbox("Prioritize URLs containing name", value=True, key="url_boost")
+            max_results = st.number_input("DDG results per query", value=5, min_value=1, max_value=20, key="url_max_results")
+            verify_fetch = st.checkbox("Verify candidates by fetching page", value=True, key="url_verify_fetch")
+
+        # initialize per-run session state keys (preserve across reruns)
+        if "url_running" not in st.session_state:
+            st.session_state.url_running = False
+        if "url_stop" not in st.session_state:
+            st.session_state.url_stop = False
+        if "url_index" not in st.session_state:
+            st.session_state.url_index = 0
+        if "url_rows" not in st.session_state:
+            st.session_state.url_rows = []
+        if "url_total" not in st.session_state:
+            st.session_state.url_total = len(df)
+
+        run_btn = st.button("Run URL Script", key="url_run")
+
+        # Stop button (visible only while running)
+        stop_col, resume_col, dl_col = st.columns([1,1,1])
+        stop_clicked = False
+        resume_clicked = False
+
+        if st.session_state.url_running:
+            # show stop button when running
+            with stop_col:
+                if st.button("STOP URL Script", key="stop_url_script"):
+                    st.session_state.url_stop = True
+                    st.warning("Stop requested — loop will stop at next iteration.")
+                    stop_clicked = True
+
+        # Resume button appears only after stop and there are remaining rows
+        remaining = len(df) - st.session_state.url_index
+        if (not st.session_state.url_running) and st.session_state.url_stop and st.session_state.url_index < len(df):
+            with resume_col:
+                if st.button("Resume URL Script", key="resume_url_script"):
+                    st.session_state.url_stop = False
+                    st.session_state.url_running = True
+                    resume_clicked = True
+
+        # Download processed rows mid-way (visible after some rows processed)
+        if st.session_state.url_rows:
+            with dl_col:
+                if st.download_button("Download Processed Rows (XLSX)", data=pd.DataFrame(st.session_state.url_rows).to_excel(index=False, engine="openpyxl"), file_name="url_processed_rows.xlsx"):
+                    pass  # streamlit handles download
+
+        # local ddg and cache instance (kept per run)
+        _local_ddgs = DDGS()
+        _query_cache_local = {}
+
+        # constants (use widget values)
+        VERIFY_CANDIDATES = True
+        MAX_RESULTS_DDG = 5
+        FETCH_TIMEOUT = 8
+        PHONE_BOOST = 20
+        ADDRESS_BOOST = 15
+        DOMAIN_PENALTY = 30
+        NAME_CONTAINS_BOOST = 45
+        NAME_IN_URL_BOOST = 40
+        MIN_ACCEPT_SCORE = 50
+        SCRAPE_ADDR_THRESHOLD = 55
+        SCRAPE_NAME_THRESHOLD = 40
+
+        ALWAYS_UNOFFICIAL_DOMAINS = {
+            'webmd.com', 'www.webmd.com',
+            'npiregistry.cms.hhs.gov', 'nppes.cms.hhs.gov', 'npiregistry', 'npi.registry', 'npi-registry',
+            'healthgrades.com', 'www.healthgrades.com',
+            'health.usnews.com', 'www.health.usnews.com',
+            'npidb.com', 'www.npidb.com',
+        }
+
+        blocked_domains = {
+            'www.mapquest.com', 'www.blockedsite.org', 'spam-site.com'
+        }
+
+        blocked_urls = {
+            'https://specific-url-to-ignore.com/path',
+            'https://another-url.com'
+        }
+
+        unofficial_domains =  {'www.yelp.com', 'www.nppes.cms.hhs.gov', 'www.opennpi.com', 'www.npidb.org', 'www.hipaaspace.com',
+            'www.doctorsdig.com', 'doctor.webmd.com', 'www.caredash.com', 'www.ratemds.com', 'www.healthcare.com',
+            'www.healthinsurance.org', 'www.medicarelist.com', 'www.medicarelawsuit.com', 'www.hospitalinspections.org',
+            'www.malpracticecenter.com', 'www.healthprofs.com', 'www.naturalhealthfinder.com', 'www.docinfo.org',
+            'www.sharecare.com', 'www.healthgrades.com', 'www.findatopdoc.com', 'www.ahrq.gov', 'www.cdc.gov',
+            'www.hcai.ca.gov', 'www.hcup-us.ahrq.gov', 'www.toprntobsn.com', 'www.mymedicarematters.org',
+            'www.consumeraffairs.com', 'www.patientadvocate.org', 'www.propublica.org', 'www.medlaw.com',
+            'www.hospitalsafetygrade.org', 'www.sciencedirect.com', 'www.jamanetwork.com', 'www.nejm.org',
+            'www.justdial.com', 'www.practo.com', 'www.lybrate.com', 'www.medigence.com', 'www.bing.com',
+            'www.chamberofcommerce.com', 'www.realtor.com', 'www.mapquest.com', 'health.usnews.com', 'healthcarecomps.com','www.doximity.com'}
+
+        # helper funcs (copied/preserved)
+        def normalize_text_local(s):
+            if not s:
+                return ""
+            s = str(s).lower()
+            s = unquote(s)
+            s = s.translate(str.maketrans(string.punctuation, " " * len(string.punctuation)))
+            return re.sub(r'\s+', ' ', s).strip()
+
+        def url_normalized_text_local(url):
+            try:
+                p = urlparse(url)
+                parts = []
+                if p.netloc:
+                    parts.append(p.netloc)
+                if p.path:
+                    parts.append(p.path)
+                if p.query:
+                    parts.append(p.query)
+                return normalize_text_local(" ".join(parts))
+            except:
+                return normalize_text_local(url)
+
+        def fetch_page_local(url, timeout=FETCH_TIMEOUT):
+            out = {"url": url, "title": "", "text": "", "phones": [], "org_name": None}
+            try:
+                headers = {"User-Agent": "Mozilla/5.0"}
+                resp = requests.get(url, headers=headers, timeout=timeout)
+                if resp.status_code != 200:
+                    return out
+                soup = BeautifulSoup(resp.text, "html.parser")
+                out["title"] = soup.title.string.strip() if soup.title else ""
+                out["text"] = soup.get_text(separator=" ", strip=True).lower()
+                out["phones"] = list(dict.fromkeys(re.findall(r'\+?\d[\d\-\s().]{7,}\d', out["text"])))
+                return out
+            except:
+                return out
+
+        def search_duckduckgo_urls_data_local(query, max_results=MAX_RESULTS_DDG):
+            key = f"{query}||{max_results}"
+            if key in _query_cache_local:
+                return _query_cache_local[key]
+            urls_data = []
+            try:
+                results = _local_ddgs.text(query, max_results=max_results)
+                for r in results:
+                    urls_data.append({"url": r.get("href",""), "title": r.get("title",""), "body": r.get("body","")})
+            except Exception as e:
+                st.warning(f"DDG error for query '{query}': {e}")
+            _query_cache_local[key] = urls_data
+            return urls_data
+
+        def get_domain_local(url):
+            try:
+                return urlparse(url).netloc.lower()
+            except:
+                return ''
+
+        def get_building_number_local(text):
+            street_keywords = ["Street","St","Avenue","Ave","Road","Rd","Drive","Dr","Boulevard","Blvd","Lane","Ln"]
+            pattern = r'\b(\d{2,6})\s+(?:' + '|'.join(street_keywords) + r')\b'
+            match = re.search(pattern, str(text), re.IGNORECASE)
+            if match:
+                return match.group(1)
+            return ''
+
+        def extract_phone_local(text):
+            match = re.search(r'\+?\d[\d\-\s().]{7,}\d', str(text))
+            return match.group() if match else ""
+
+        def score_candidate_local(candidate, target_name, target_address, original_bldg, prioritize_name_in_url=True):
+            snippet_title = candidate.get("title","")
+            snippet_body = candidate.get("body","")
+            name_score_title = fuzz.token_set_ratio(target_name.lower(), snippet_title.lower()) if snippet_title else 0
+            name_score_body = fuzz.token_set_ratio(target_name.lower(), snippet_body.lower()) if snippet_body else 0
+            addr_score_body = fuzz.token_set_ratio(target_address.lower(), snippet_body.lower()) if snippet_body else 0
+            score = int(0.6 * max(name_score_title, name_score_body) + 0.3 * addr_score_body)
+            norm_target = normalize_text_local(target_name)
+            if norm_target and (norm_target in normalize_text_local(snippet_title) or norm_target in normalize_text_local(snippet_body)):
+                score += NAME_CONTAINS_BOOST
+            url = candidate.get("url","")
+            if prioritize_name_in_url and url and norm_target and norm_target in url_normalized_text_local(url):
+                score += NAME_IN_URL_BOOST
+            if VERIFY_CANDIDATES and url:
+                page = fetch_page_local(url)
+                title_score = fuzz.token_set_ratio(target_name.lower(), (page.get("title") or "").lower()) if page.get("title") else 0
+                body_score = fuzz.token_set_ratio(target_name.lower(), (page.get("text") or "").lower()) if page.get("text") else 0
+                score = max(score, int(0.5*max(title_score, body_score)))
+            domain = get_domain_local(url)
+            if domain in unofficial_domains:
+                score -= DOMAIN_PENALTY
+            return score
+
+        def prioritize_links_local(links, name="", address="", original_bldg=""):
+            scored = []
+            for l in links:
+                sc = score_candidate_local(l, name, address, original_bldg, prioritize_name_in_url=url_boost)
+                scored.append((sc, l.get("url","")))
+            if not scored:
+                return ""
+            scored.sort(key=lambda x: x[0], reverse=True)
+            return scored[0][1]
+
+        # run/resume logic
+        # When Run clicked: reset and start from 0
+        if run_btn:
+            st.session_state.url_running = True
+            st.session_state.url_stop = False
+            st.session_state.url_index = 0
+            st.session_state.url_rows = []
+            st.session_state.url_total = len(df)
+
+        # When resume clicked the session_state.url_running will already be set above when clicked
+        # Main processing loop: will run when url_running True
+        if st.session_state.url_running:
+            progress_text = st.empty()
+            progress_bar = st.progress(0)
+            total = len(df)
+            # Ensure url_total sync
+            st.session_state.url_total = total
+
+            # Start processing from saved index
+            start_idx = int(st.session_state.url_index or 0)
+            rows_out = list(st.session_state.url_rows or [])
+
+            for idx in range(start_idx, total):
+                # check stop flag
+                if st.session_state.url_stop:
+                    progress_text.text(f"🛑 Stopped at row {idx}/{total}")
+                    # save state
+                    st.session_state.url_index = idx
+                    st.session_state.url_rows = rows_out
+                    st.session_state.url_running = False
+                    break
+
+                row = df.iloc[idx]
+                name = str(row.get(name_col, "") or "")
+                address = str(row.get(addr_col, "") or "")
+                bldg = get_building_number_local(address)
+                query = f"{name} {address}"
+                urls = search_duckduckgo_urls_data_local(query, max_results=MAX_RESULTS_DDG)
+                official_candidates = [u for u in urls if get_domain_local(u.get("url","")) not in unofficial_domains]
+                unofficial_candidates = [u for u in urls if get_domain_local(u.get("url","")) in unofficial_domains]
+                found_official = prioritize_links_local(official_candidates, name, address, bldg)
+                found_unofficial = prioritize_links_local(unofficial_candidates, name, address, bldg)
+                found_contact = ""
+                if found_official:
+                    p = fetch_page_local(found_official) if VERIFY_CANDIDATES else {}
+                    found_contact = extract_phone_local(p.get("text","")) if p else ""
+                if not found_contact and found_unofficial:
+                    p = fetch_page_local(found_unofficial) if VERIFY_CANDIDATES else {}
+                    found_contact = extract_phone_local(p.get("text","")) if p else ""
+
+                out_row = row.to_dict()
+                out_row["official link"] = found_official
+                out_row["unofficial link"] = found_unofficial
+                out_row["contact number"] = found_contact
+                rows_out.append(out_row)
+
+                # update UI and session progress
+                st.session_state.url_index = idx + 1
+                st.session_state.url_rows = rows_out
+                progress_text.text(f"Processing {idx+1}/{total}: {name}")
+                progress_bar.progress(int((idx+1)/total*100))
+
+            else:
+                # Completed loop without break
+                st.session_state.url_running = False
+                st.session_state.url_stop = False
+                st.session_state.url_index = total
+
+            # After loop finishes or stops, show result & download button
+            result_df = pd.DataFrame(st.session_state.url_rows)
+            if not result_df.empty:
+                st.success("✅ Script finished or stopped.")
+                st.dataframe(result_df.head(200))
+                # downloads (XLSX)
+                towrite = io.BytesIO()
+                result_df.to_excel(towrite, index=False, engine="openpyxl")
+                towrite.seek(0)
+                st.download_button("Download Processed Rows (XLSX)", towrite.read(), file_name="url_processed_rows.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            else:
+                st.info("No rows processed yet.")
+
+    else:
+        st.info("Upload a CSV/XLSX file and choose a script to run.")
+
+
+# -------------------------
+# 3) Salesforce Report Automation (your script)
 # -------------------------
 elif tool == "Salesforce Report Automation":
     st.header("📥 Salesforce Report Downloader")
@@ -433,7 +762,7 @@ elif tool == "Salesforce Report Automation":
                 log_fn(str(e))
 
 # -------------------------
-# 3) Salesforce Table Joining (SQL Runner)
+# 4) Salesforce Table Joining (SQL Runner)
 # -------------------------
 elif tool == "Salesforce Table Joining (SQL Runner)":
     st.header("🔁 Salesforce → DuckDB SQL Runner")
@@ -455,7 +784,6 @@ elif tool == "Salesforce Table Joining (SQL Runner)":
             st.markdown("**Optional: IDs CSV**")
             ids_file = st.file_uploader("Upload IDs CSV (optional)", type=["csv"], accept_multiple_files=False, key="ids_upload")
             ids_local_path = st.text_input("Or enter local IDs CSV path (optional)", value="", key="ids_local")
-            #id_object = st.selectbox("IDs belong to (choose after login)", options=["(not connected)"], index=0, key="id_object_select")
         with col3:
             st.markdown("**SQL Input**")
             query_box = st.text_area(
@@ -830,4 +1158,4 @@ elif tool == "Salesforce Table Joining (SQL Runner)":
 # -------------------------
 else:
     st.write("Select a tool from the sidebar to get started.")
-    st.write("Implemented: Name & Address Match, Salesforce Report Automation, Salesforce Table Joining (SQL Runner).")
+    st.write("Implemented: Name & Address Match, URL Scraper & Fuzzy Matching, Salesforce Report Automation, Salesforce Table Joining (SQL Runner).")
