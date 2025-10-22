@@ -1328,4 +1328,4 @@ elif tool == "Vid Number Extraction":
 # default
 else:
     st.write("Select a tool from the sidebar to get started.")
-    st.write("Implemented: Name & Address Match, URL Scraper & Fuzzy Matching, Salesforce Report Automation, Salesforce Table Joining (SQL Runner).")
+    st.write("Implemented: Name & Address Match, URL Scraper & Fuzzy Matching, Salesforce Report Automation, Salesforce Table Joining, Vid Number Extraction")
