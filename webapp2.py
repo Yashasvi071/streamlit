@@ -45,7 +45,7 @@ from rapidfuzz import fuzz, process as rfproc
 from tqdm import tqdm
 # Ensure Streamlit page config
 st.set_page_config(page_title="Tools Dashboard", layout="wide")
-#   st.set_option('server.maxUploadSize', 1024)  # MB; increase if you need larger uploads
+#st.set_option('server.maxUploadSize', 2000)  # MB; increase if you need larger uploads
 
 # -------------------------
 # UI helpers
