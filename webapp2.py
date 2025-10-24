@@ -1246,9 +1246,9 @@ elif tool == "Vid Number Extraction":
             return True
         return pc_A_norm == pc_B_norm
 
-    # -----------------------------
+    
     # Fuzzy Match Function
-    # -----------------------------
+
     def perform_match(A_df, B_filtered, name_cols_A, name_cols_B, addr_cols_A, addr_cols_B, postal_col_A, postal_col_B, name_threshold, addr_threshold):
         matched_pairs = []
 
