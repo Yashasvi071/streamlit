@@ -948,7 +948,58 @@ elif tool == "Salesforce Table Joining":
 
         sf_alias_real_pairs = [(alias, real) for alias, real in alias_real_pairs if real.lower() != 'uploaded_ids']
         all_cols = extract_all_columns(sql_text)
+            # build fields to fetch per alias (only for Salesforce objects)
         mapping = build_fields_to_fetch(sql_text, sf_alias_real_pairs, all_cols)
+
+        # --- Auto-qualify unqualified columns (so "SELECT name FROM Account" works) ---
+        unqualified_cols = [c for c in all_cols if "." not in c]
+        alias_order = [alias for alias, _ in sf_alias_real_pairs]  # preserve FROM/JOIN order
+
+        def object_has_field(real_obj, field_name):
+            try:
+                fields = describe_fields_for_object(real_obj)
+                return any(field_name.lower() == f.lower() for f in fields)
+            except Exception:
+                return False
+
+        # Choose a single alias for each unqualified column (prefer unique matches, then first alias)
+        chosen_for_unqualified = {}
+        for col in unqualified_cols:
+            matches = []
+            for alias, real in sf_alias_real_pairs:
+                if object_has_field(real, col):
+                    matches.append(alias)
+            if len(matches) == 1:
+                chosen = matches[0]
+            elif len(matches) > 1:
+                # prefer the first alias in the query order that matches
+                chosen = next((a for a in alias_order if a in matches), matches[0])
+            else:
+                # no describe match: if only one SF object present, assign to it; otherwise default to first alias
+                chosen = alias_order[0] if alias_order else None
+
+            if chosen:
+                mapping.setdefault(chosen, set()).add(col)
+                chosen_for_unqualified[col] = chosen
+
+        # Rewrite the SQL to qualify those unqualified columns with the chosen alias.
+        # Use word-boundary replacement to avoid touching dotted identifiers.
+        new_sql_text = sql_text
+        for col, alias in chosen_for_unqualified.items():
+            # only replace occurrences that are not already qualified (i.e., not part of alias.col or obj.col)
+            # This regex matches the column as a standalone token.
+            new_sql_text = re.sub(rf'(?i)\b{re.escape(col)}\b', f"{alias}.{col}", new_sql_text)
+
+        # Recompute columns from the rewritten SQL and update variables used downstream
+        sql_text = new_sql_text
+        all_cols = extract_all_columns(sql_text)
+        # Rebuild mapping to include relation-derived tokens (in case alias qualification added dotted tokens)
+        mapping = build_fields_to_fetch(sql_text, sf_alias_real_pairs, all_cols)
+        # ensure previously chosen unqualified fields remain included
+        for col, alias in chosen_for_unqualified.items():
+            mapping.setdefault(alias, set()).add(col)
+    # ---------------------------------------------------------------------------
+
         alias_to_real = {alias: real for alias, real in sf_alias_real_pairs}
 
         id_map = {}
