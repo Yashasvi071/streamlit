@@ -102,24 +102,22 @@ if st.button("🏠 Home", key="home_button"):
 
 # Main screen: tool selector
 st.markdown("""
-<style>
-/* ------------------------------------------------ */
+<style>           
 /* 1. GENERAL DEFAULT STYLES FOR ALL BUTTONS        */
-/* ------------------------------------------------ */
 div.stButton > button:first-child {
     color: white;             
     border: none;
     border-radius: 8px;
-    padding: 10px 20px;
+    padding-left: 5px; 
+    padding-right: 5px;         
+    padding: 10px 15px;
     min-width: 200px;
     /* This fallback will be overridden by the specific colors/gradients below */
     background-color: #AAAAAA; 
 }
 
-/* ------------------------------------------------ */
 /* 2. INDIVIDUAL TOOL BUTTON COLORS (SOLID COLORS)  */
 /* Targets the 5 buttons in the main horizontal row */
-/* ------------------------------------------------ */
 div[data-testid*="stHorizontalBlock"] > div:nth-child(1) div.stButton > button:first-child {
     background-color: #87CEEB; /* Blue */
 }
@@ -171,12 +169,6 @@ div[data-testid="stVerticalBlock"] > div:first-child div[data-testid*="stHorizon
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2) !important;
     transition: background 0.3s, box-shadow 0.3s !important; 
             
-/* Add this new rule to your existing <style> block */
-div[data-testid*="stHorizontalBlock"] > div {
-    /* Target the column container and reduce its internal padding */
-    padding-left: 5px !important; 
-    padding-right: 5px !important;
-}            
 }
 </style>
 """, unsafe_allow_html=True)
