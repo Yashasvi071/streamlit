@@ -1,4 +1,4 @@
-# app.py - Multi-tool Streamlit app with Name & Address Match,
+# webapp2.py - Multi-tool Streamlit app with Name & Address Match,
 # Salesforce Report Automation, Salesforce Table Joining (SQL Runner),
 # and URL Scraper & Fuzzy Matching
 #
@@ -47,9 +47,9 @@ from tqdm import tqdm
 st.set_page_config(page_title="Tools Dashboard", layout="wide")
 #st.set_option('server.maxUploadSize', 2000)  # MB; increase if you need larger uploads
 
-# -------------------------
+# 
 # UI helpers
-# -------------------------
+# 
 def load_dataframe(file_uploader, local_path):
     """Prefer uploaded file (browser). Fall back to local path if provided."""
     if file_uploader is not None:
@@ -92,59 +92,109 @@ def show_and_download_df(df, filename_prefix="result"):
     towrite.seek(0)
     st.download_button("Download Excel", towrite.read(), file_name=f"{filename_prefix}.xlsx",
                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    
+if st.button("🏠 Home", key="home_button"):
+    # When the button is clicked, reset the selected_tool state
+    st.session_state.selected_tool = None
+    # Force a rerun to reload the app and show the main dashboard
+    st.rerun()
+
 
 # Main screen: tool selector
 st.markdown("""
 <style>
-/* 1. Default Style for all buttons */
+/* ------------------------------------------------ */
+/* 1. GENERAL DEFAULT STYLES FOR ALL BUTTONS        */
+/* ------------------------------------------------ */
 div.stButton > button:first-child {
-    color: white;             /* Text color */
+    color: white;             
     border: none;
     border-radius: 8px;
     padding: 10px 20px;
     min-width: 200px;
+    /* This fallback will be overridden by the specific colors/gradients below */
+    background-color: #AAAAAA; 
 }
 
-/* 2. Style for the 1st button (Name & Address Match) */
-div[data-testid="stHorizontalBlock"] > div:nth-child(1) div.stButton > button:first-child {
-    background-color: #3498DB; /* Blue */
+/* ------------------------------------------------ */
+/* 2. INDIVIDUAL TOOL BUTTON COLORS (SOLID COLORS)  */
+/* Targets the 5 buttons in the main horizontal row */
+/* ------------------------------------------------ */
+div[data-testid*="stHorizontalBlock"] > div:nth-child(1) div.stButton > button:first-child {
+    background-color: #87CEEB; /* Blue */
 }
-
-/* 3. Style for the 2nd button (URL Scraper & Fuzzy Matching) */
-div[data-testid="stHorizontalBlock"] > div:nth-child(2) div.stButton > button:first-child {
-    background-color: #2ECC71; /* Green */
+div[data-testid*="stHorizontalBlock"] > div:nth-child(2) div.stButton > button:first-child {
+    background-color: #006400; /* Green */
 }
-
-/* 4. Style for the 3rd button (Salesforce Report Automation) */
-div[data-testid="stHorizontalBlock"] > div:nth-child(3) div.stButton > button:first-child {
+div[data-testid*="stHorizontalBlock"] > div:nth-child(3) div.stButton > button:first-child {
     background-color: #E74C3C; /* Red */
 }
-
-/* 5. Style for the 4th button (Salesforce Table Joining) */
-div[data-testid="stHorizontalBlock"] > div:nth-child(4) div.stButton > button:first-child {
+div[data-testid*="stHorizontalBlock"] > div:nth-child(4) div.stButton > button:first-child {
     background-color: #F39C12; /* Orange */
 }
-
-/* 6. Style for the 5th button (Vid Number Extraction) */
-div[data-testid="stHorizontalBlock"] > div:nth-child(5) div.stButton > button:first-child {
-    background-color: #9B59B6; /* Purple */
+div[data-testid*="stHorizontalBlock"] > div:nth-child(5) div.stButton > button:first-child {
+    background-color: #00008B; /* Blue */
 }
 
-/* Optional: Add hover styles for the different colors */
+/* Tool Button Hover Styles */
 div[data-testid*="stHorizontalBlock"] > div:nth-child(1) div.stButton > button:hover { background-color: #5DADE2; }
 div[data-testid*="stHorizontalBlock"] > div:nth-child(2) div.stButton > button:hover { background-color: #58D68D; }
 div[data-testid*="stHorizontalBlock"] > div:nth-child(3) div.stButton > button:hover { background-color: #EC7063; }
 div[data-testid*="stHorizontalBlock"] > div:nth-child(4) div.stButton > button:hover { background-color: #F7C584; }
 div[data-testid*="stHorizontalBlock"] > div:nth-child(5) div.stButton > button:hover { background-color: #C39BD3; }
+
+
+/* 3. HOME BUTTON GRADIENT (The FIX: Uses !important) */
+/* Targets the Home button specifically in the HEADER area */
+
+/* Default Gradient Style */
+div[data-testid="stVerticalBlock"] > div:first-child div[data-testid*="stHorizontalBlock"] > div:nth-last-child(1) div.stButton > button:first-child {
+    color: white !important; 
+    border: 1px solid #0056b3 !important; 
+    
+    /* THE GRADIENT - Using !important to FORCE override */
+    background: linear-gradient(180deg, #007BFF, #0056B3) !important;
+    
+    /* Size adjustments to make it small and distinct */
+    min-width: unset !important; /* Override 200px from section 1 */
+    padding: 5px 15px !important;
+    font-size: 16px !important;
+    
+    /* Ensure the background property is only the gradient */
+    background-color: transparent !important; 
+}
+
+/* Hover Gradient Effect */
+div[data-testid="stVerticalBlock"] > div:first-child div[data-testid*="stHorizontalBlock"] > div:nth-last-child(1) div.stButton > button:hover {
+    /* Lighter gradient on hover */
+    background: linear-gradient(180deg, #0056B3, #007BFF) !important; 
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2) !important;
+    transition: background 0.3s, box-shadow 0.3s !important; 
+            
+/* Add this new rule to your existing <style> block */
+div[data-testid*="stHorizontalBlock"] > div {
+    /* Target the column container and reduce its internal padding */
+    padding-left: 5px !important; 
+    padding-right: 5px !important;
+}            
+}
 </style>
 """, unsafe_allow_html=True)
 if 'selected_tool' not in st.session_state:
     st.session_state.selected_tool = None
+    
 
-# --- 2. Define the Tools ---
+#if st.button("🏠 Home", key="home_button"):
+ #   # When the button is clicked, reset the selected_tool state
+  #  st.session_state.selected_tool = None
+    # Force a rerun to reload the app and show the main dashboard
+   # st.rerun()
+
+
+#  2. Define the Tools 
 TOOL_OPTIONS = [
     "Name & Address Match",
-    "URL Scraper & Fuzzy Matching",
+    "URL Scraper & Name/Address Matching",
     "Salesforce Report Automation",
     "Salesforce Table Joining",
     "Vid Number Extraction"
@@ -174,9 +224,9 @@ st.divider()
 #st.markdown("Select a tool from the sidebar. Implemented: Name & Address Match, URL Scraper & Fuzzy Matching, Salesforce Report Automation, Salesforce Table Joining, Vid Number Extraction.")
 if st.session_state.selected_tool:
     st.header(f"You Selected: {st.session_state.selected_tool}")
-# -------------------------
+
+
 # 1) Name & Address Match (your script)
-# -------------------------
     if st.session_state.selected_tool == "Name & Address Match":
         st.header("🔎 Name & Address Matching")
         st.markdown(
@@ -241,7 +291,7 @@ if st.session_state.selected_tool:
 
         run_button = st.button("Run Matching", key="nm_run")
 
-        # --- helper functions (identical logic) ---
+        #  helper functions (identical logic) 
         import re as _re
         from fuzzywuzzy import fuzz as _fuzz
 
@@ -330,10 +380,8 @@ if st.session_state.selected_tool:
                 st.error(f"Error during matching: {e}")
                 st.exception(e)
 
-    # -------------------------
     # 2) URL Scraper & Fuzzy Matching
-    # -------------------------
-    elif st.session_state.selected_tool == "URL Scraper & Fuzzy Matching":
+    elif st.session_state.selected_tool == "URL Scraper & Name/Address Matching":
         st.header("📌 URL Scraper & Name/Address Matching")
 
         # Check ddgs availability
@@ -344,7 +392,7 @@ if st.session_state.selected_tool:
         #  st.stop()
 
         uploaded_file = st.file_uploader("Upload CSV/XLSX file", type=['csv','xls','xlsx'], key="url_upload")
-        script_option = st.selectbox("Choose Script", ["Select","Script 1: DuckDuckGo","Script 2: Fuzzy Matching"], key="url_script_select")
+        script_option = st.selectbox("Choose Script", ["Select","Script 1: URL Scraper","Script 2: Name/Address Matching"], key="url_script_select")
 
         if uploaded_file is not None and script_option != "Select":
             # load dataframe
@@ -647,9 +695,7 @@ if st.session_state.selected_tool:
             st.info("Upload a CSV/XLSX file and choose a script to run.")
 
 
-    # -------------------------
     # 3) Salesforce Report Automation (your script)
-    # -------------------------
     elif st.session_state.selected_tool == "Salesforce Report Automation":
         st.header("📥 Salesforce Report Downloader")
         st.write(
@@ -833,9 +879,8 @@ if st.session_state.selected_tool:
                     st.error(f"Error: {e}")
                     log_fn(str(e))
 
-    # -------------------------
     # 4) Salesforce Table Joining (SQL Runner)
-    # -------------------------
+    
     elif st.session_state.selected_tool == "Salesforce Table Joining":
         st.header("🔁 Salesforce → DuckDB SQL Runner")
         st.markdown(
@@ -843,9 +888,7 @@ if st.session_state.selected_tool:
             "enter SQL (use aliases), and run. The app will fetch only necessary fields and run the SQL in DuckDB."
         )
 
-        # ---------------------------
         # Inputs: Salesforce login
-        # ---------------------------
         with st.expander("Salesforce credentials & IDs (expand) — required"):
             col1, col2, col3 = st.columns(3)
             with col1:
@@ -869,7 +912,7 @@ if st.session_state.selected_tool:
         log_area = st.empty()
         progress = st.progress(0)
 
-        # ---------- Small streamlit-aware logger with .info(...) used by runner ----------
+        #  Small streamlit-aware logger with .info(...) used by runner 
         class StreamlitLogger:
             def __init__(self, placeholder):
                 self.placeholder = placeholder
@@ -880,9 +923,8 @@ if st.session_state.selected_tool:
 
         log = StreamlitLogger(log_area)
 
-        # ---------------------------
+        # 
         # Helper functions (kept from your salesforce_sql_streamlit script)
-        # ---------------------------
         def parse_table_aliases(sql):
             try:
                 tree = parse_one(sql)
@@ -1063,7 +1105,6 @@ if st.session_state.selected_tool:
             # ensure previously chosen unqualified fields remain included
             for col, alias in chosen_for_unqualified.items():
                 mapping.setdefault(alias, set()).add(col)
-        # ---------------------------------------------------------------------------
 
             alias_to_real = {alias: real for alias, real in sf_alias_real_pairs}
 
@@ -1187,9 +1228,7 @@ if st.session_state.selected_tool:
 
             return result
 
-        # ---------------------------
         # Streamlit runtime: handle login & run
-        # ---------------------------
         if 'sf_conn' not in st.session_state:
             st.session_state.sf_conn = None
         if 'sobjects' not in st.session_state:
@@ -1376,9 +1415,7 @@ if st.session_state.selected_tool:
             matched_df = pd.DataFrame(matched_pairs)
             return matched_df
 
-        # -----------------------------
         # Streamlit UI
-        # -----------------------------
         #st.title("VID extraction Tool")
 
         # File uploads
@@ -1460,6 +1497,6 @@ if st.session_state.selected_tool:
 
         
     # default
-    else:
-        st.write("Select a tool from the sidebar to get started.")
-        st.write("Implemented: Name & Address Match, URL Scraper & Fuzzy Matching, Salesforce Report Automation, Salesforce Table Joining, Vid Number Extraction")
+else:
+ st.write("Select a tool from the above options to get started.")
+ st.write("Implemented: Name & Address Match, URL Scraper & Fuzzy Matching, Salesforce Report Automation, Salesforce Table Joining, Vid Number Extraction")
