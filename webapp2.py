@@ -92,12 +92,52 @@ def show_and_download_df(df, filename_prefix="result"):
     towrite.seek(0)
     st.download_button("Download Excel", towrite.read(), file_name=f"{filename_prefix}.xlsx",
                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    
+
+# Custom CSS for the Home button
+st.markdown(
+    """
+    <style>
+    /* Target the specific button using its label and key order */
+    div[data-testid="stButton"] button[kind="secondary"] {
+        background-color: #2E86C1;        /* Primary background */
+        color: white;                     /* Text color */
+        font-size: 16px;                  /* Font size */
+        font-weight: 600;                 /* Bold text */
+        border-radius: 12px;              /* Rounded corners */
+        padding: 10px 24px;               /* Padding */
+        border: 2px solid #1B4F72;        /* Border color */
+        transition: all 0.2s ease-in-out; /* Smooth hover effect */
+    }
+
+    /* Hover effect */
+    div[data-testid="stButton"] button[kind="secondary"]:hover {
+        background-color: #1B4F72;
+        border-color: #154360;
+        color: #FDFEFE;
+        transform: scale(1.05);
+    }
+
+    /* Add a small shadow effect */
+    div[data-testid="stButton"] button[kind="secondary"]:focus {
+        box-shadow: 0 0 0 3px rgba(46, 134, 193, 0.4);
+        outline: none;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Create your styled button
 if st.button("🏠 Home", key="home_button"):
-    # When the button is clicked, reset the selected_tool state
     st.session_state.selected_tool = None
-    # Force a rerun to reload the app and show the main dashboard
     st.rerun()
+
+    
+#if st.button("🏠 Home", key="home_button"):
+    # When the button is clicked, reset the selected_tool state
+    #st.session_state.selected_tool = None
+    # Force a rerun to reload the app and show the main dashboard
+    #st.rerun()
 
 
 # Main screen: tool selector
@@ -113,22 +153,23 @@ div.stButton > button:first-child {
     padding: 10px 15px;
     min-width: 200px;
     /* This fallback will be overridden by the specific colors/gradients below */
-    background-color: #AAAAAA; 
+    background-color: #9c0327; 
 }
 
 /* 2. INDIVIDUAL TOOL BUTTON COLORS (SOLID COLORS)  */
 /* Targets the 5 buttons in the main horizontal row */
 div[data-testid*="stHorizontalBlock"] > div:nth-child(1) div.stButton > button:first-child {
     background-color: #87CEEB; /* Blue */
+            
 }
 div[data-testid*="stHorizontalBlock"] > div:nth-child(2) div.stButton > button:first-child {
-    background-color: #006400; /* Green */
+    background-color: #0574eb; /* Green */
 }
 div[data-testid*="stHorizontalBlock"] > div:nth-child(3) div.stButton > button:first-child {
-    background-color: #E74C3C; /* Red */
+    background-color: #1b0694; /* Red */
 }
 div[data-testid*="stHorizontalBlock"] > div:nth-child(4) div.stButton > button:first-child {
-    background-color: #F39C12; /* Orange */
+    background-color: #345cc9; /* Light BLue */
 }
 div[data-testid*="stHorizontalBlock"] > div:nth-child(5) div.stButton > button:first-child {
     background-color: #00008B; /* Blue */
