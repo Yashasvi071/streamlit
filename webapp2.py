@@ -93,6 +93,24 @@ def show_and_download_df(df, filename_prefix="result"):
     st.download_button("Download Excel", towrite.read(), file_name=f"{filename_prefix}.xlsx",
                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
+
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background:linear-gradient(to right, #28313B , #485461);
+        color: white;
+    }
+
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(to bottom, #243B55, #141E30);
+        color: white;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # Custom CSS for the Home button
 st.markdown(
     """
