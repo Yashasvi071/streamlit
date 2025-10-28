@@ -97,6 +97,39 @@ def show_and_download_df(df, filename_prefix="result"):
 st.markdown(
     """
     <style>
+    /* ... Your existing custom button and background styles go here ... */
+
+     
+    /* 1. TEXT COLOR - DEFAULT (DARK THEME)                               */
+    /* Sets the text color to white when the app is in its default dark state. */
+    body[data-theme="dark"] * {
+        color: white;
+    }
+
+    /* 2. TEXT COLOR - LIGHT THEME OVERRIDE (FIX)                         */
+    /* FORCES the text color to black when the user switches to the Light Theme. */
+    body[data-theme="light"] * {
+        color: black !important;
+    }
+    
+    /* 3.  CUSTOM BACKGROUND COLOR (Ensures the background stays dark)*/
+    body {
+        background-color: #1A1A2E !important; 
+    }
+    .main {
+        background-color: #1A1A2E !important;
+    }
+    /* etc... */
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
+
+st.markdown(
+    """
+    <style>
     .stApp {
         background:linear-gradient(to right, #28313B , #485461);
         color: white;
@@ -281,43 +314,36 @@ if st.session_state.selected_tool:
     if st.session_state.selected_tool == "Name & Address Match":
         st.header("🔎 Name & Address Matching")
         st.markdown(
-            "Upload an Excel/CSV file or enter a local file path (recommended for large files). "
-            "Then choose whether to run name matching, address matching or both."
+            # Updated description to remove local path reference
+            "Upload an Excel/CSV file and then choose whether to run name matching, address matching or both."
         )
 
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            upload = st.file_uploader("Upload file (CSV / XLSX)", type=["csv", "xlsx", "xls"], key="nm_upload")
-        with col2:
-            local_path = st.text_input("Or enter local file path (use this for large files)", "", key="nm_local_path")
+        # Simplified layout: Removed col2
+        # Removed local file path st.text_input
+        upload = st.file_uploader(
+            "Upload file (CSV / XLSX)", 
+            type=["csv", "xlsx", "xls"], 
+            key="nm_upload"
+        )
 
-        # Load file into DataFrame (prefer upload if provided)
+        # Load file into DataFrame (only checking for upload)
         df = None
         if upload is not None:
             try:
                 if upload.name.lower().endswith(".csv"):
+                    # Use uploaded file buffer
                     df = pd.read_csv(upload, dtype=str).fillna("")
                 else:
+                    # Use uploaded file buffer
                     df = pd.read_excel(upload, dtype=str).fillna("")
                 st.success(f"Loaded uploaded file: {upload.name} ({len(df)} rows)")
             except Exception as e:
                 st.error(f"Error reading uploaded file: {e}")
-        elif local_path:
-            try:
-                p = Path(local_path)
-                if not p.exists():
-                    st.error("Local path does not exist. Check the path and try again.")
-                else:
-                    if str(p).lower().endswith(".csv"):
-                        df = pd.read_csv(p, dtype=str).fillna("")
-                    else:
-                        df = pd.read_excel(p, dtype=str).fillna("")
-                    st.success(f"Loaded local file: {p.name} ({len(df)} rows)")
-            except Exception as e:
-                st.error(f"Error reading local file: {e}")
+        
+        # Removed elif local_path logic
 
         if df is None:
-            st.info("Upload a file or enter a local path to continue.")
+            st.info("Upload a file to continue.")
             st.stop()
 
         # Column selectors
@@ -345,7 +371,7 @@ if st.session_state.selected_tool:
         #  helper functions (identical logic) 
         import re as _re
         from fuzzywuzzy import fuzz as _fuzz
-
+        
         def preprocess_text(text):
             if isinstance(text, str):
                 text = text.lower().strip()
@@ -418,7 +444,8 @@ if st.session_state.selected_tool:
 
                 # Download links
                 csv_bytes = working.to_csv(index=False).encode('utf-8')
-                file_stem = Path(upload.name if upload else local_path).stem if (upload or local_path) else "result"
+                # Changed file_stem logic to only check for upload
+                file_stem = Path(upload.name).stem if upload else "result"
                 st.download_button("Download CSV", csv_bytes, file_name=f"Result_{file_stem}.csv", mime="text/csv")
 
                 # Excel download: write to buffer
@@ -443,6 +470,9 @@ if st.session_state.selected_tool:
         #  st.stop()
 
         uploaded_file = st.file_uploader("Upload CSV/XLSX file", type=['csv','xls','xlsx'], key="url_upload")
+        st.markdown("After uploading the desired file, Please select which script to run.")
+        st.markdown("Script 1. Scrape the Official and Unofficial links along with contact details of the HCPs/HCOs.") 
+        st.markdown("Script 2. To perform name and address matching of the HCPs/HCOs.")
         script_option = st.selectbox("Choose Script", ["Select","Script 1: URL Scraper","Script 2: Name/Address Matching"], key="url_script_select")
 
         if uploaded_file is not None and script_option != "Select":
@@ -1307,6 +1337,9 @@ if st.session_state.selected_tool:
                 st.error(f"Salesforce login failed: {e}")
 
         # update id_object selectbox after connect
+        st.markdown("If you want to fetch the data by the IDs present in a csv file, Please upload the csv file and select to which object does the IDs belong. ")
+        st.markdown(" To use the uploaded IDs file in the SQL query, Use uploaded_ids. FOLLOWED by the file name")
+        st.markdown(" FOR EXAMPLE- uploaded_ids.ID (ID is the file name)")
         if st.session_state.sobjects:
             id_object = st.selectbox("IDs belong to (select object for uploaded IDs)", options=["(none)"] + st.session_state.sobjects, index=0, key="id_object_after_connect")
         else:
@@ -1372,7 +1405,7 @@ if st.session_state.selected_tool:
         st.header("If the file to be uploaded is more than 200 MB, Please click on the below button to run the script in google colab.")
         st.header("If not then please continue uploading the file here itself.")
         st.markdown("""
-        <a href="https://colab.research.google.com/drive/1171dZBfDxJ8cuPPK9yHiJUpBmxLcknrH?usp=sharing" target="_blank">
+        <a href="https://colab.research.google.com/drive/1CrmyBXkJN6D0PXRSvTIFXhbbkH2Fk3Ik?usp=sharing" target="_blank">
             <button style="
                 background-color:#ff4b4b;
                 color:white;
