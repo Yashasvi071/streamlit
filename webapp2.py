@@ -125,8 +125,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-
-
 st.markdown(
     """
     <style>
@@ -856,8 +854,33 @@ if st.session_state.selected_tool:
             # --- SCRIPT 2: Name/Address Matching (Placeholder) ---
             elif script_option == "Script 2: Name/Address Matching":
                 st.subheader("Name/Address Matching Configuration")
-                st.warning("Implementation for Script 2 goes here.")
-                # ... (add logic for name/address matching from the other tool here if needed)
+                #st.warning("Implementation for Script 2 goes here.")
+                col_name1 = st.selectbox("Full Name 1", df.columns)
+                col_name2 = st.selectbox("Full Name 2", df.columns)
+                col_addr1 = st.selectbox("Address 1", df.columns)
+                col_addr2 = st.selectbox("Address 2", df.columns)
+                if st.button("Run Script 2"):
+                    def preprocess(text):
+                        text = str(text).lower()
+                        text = re.sub(r'[^a-z0-9\s]', '', text)
+                        return re.sub(r'\s+', ' ', text).strip()
+                    df_proc = df.copy()
+                    df_proc[col_name1] = df_proc[col_name1].apply(preprocess)
+                    df_proc[col_name2] = df_proc[col_name2].apply(preprocess)
+                    df_proc[col_addr1] = df_proc[col_addr1].apply(preprocess)
+                    df_proc[col_addr2] = df_proc[col_addr2].apply(preprocess)
+
+                    def fuzzy_match(a,b): return fuzz.token_set_ratio(a,b)
+                    def building_match(a,b):
+                        bld1 = re.search(r"\d+", a); bld2 = re.search(r"\d+", b)
+                        return "Yes" if bld1 and bld2 and bld1.group()==bld2.group() and fuzzy_match(a,b)>70 else "No"
+
+                    df_proc["Name Match Percentage"] = df_proc.apply(lambda r: fuzzy_match(r[col_name1], r[col_name2]), axis=1)
+                    df_proc["Name Match"] = df_proc["Name Match Percentage"].apply(lambda x: "Yes" if x>=90 else "No")
+                    df_proc["Address Match"] = df_proc.apply(lambda r: building_match(r[col_addr1], r[col_addr2]), axis=1)
+                    df_proc["Final Outcome"] = df_proc.apply(lambda r: "Yes" if r["Name Match"]=="Yes" and r["Address Match"]=="Yes" else "No", axis=1)
+                    st.success("✅ Script completed!")
+                    st.download_button("Download Result", df_proc.to_excel(index=False), file_name="fuzzy_output.xlsx")
 
         else:
             st.info("Upload a CSV/XLSX file and choose a script to run.")
