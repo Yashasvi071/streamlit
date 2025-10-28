@@ -192,144 +192,82 @@ if st.button("🏠 Home", key="home_button"):
 
 
 # Main screen: tool selector
-st.markdown(
-    """
-    <style>
-    /* Base theme variables */
-    :root {
-        --primary-bg: #1A1A2E;
-        --secondary-bg: #243B55;
-        --text-color: white;
-        --sidebar-bg: linear-gradient(to bottom, #243B55, #141E30);
-    }
+st.markdown("""
+<style>           
+/* 1. GENERAL DEFAULT STYLES FOR ALL BUTTONS        */
+div.stButton > button:first-child {
+    color: white;             
+    border: none;
+    border-radius: 8px;
+    padding-left: 5px; 
+    padding-right: 5px;         
+    padding: 10px 15px;
+    min-width: 200px;
+    /* This fallback will be overridden by the specific colors/gradients below */
+    background-color: #9c0327; 
+}
 
-    /* Dark theme (default) */
-    .stApp {
-        background: var(--primary-bg) !important;
-        color: var(--text-color) !important;
-    }
+/* 2. INDIVIDUAL TOOL BUTTON COLORS (SOLID COLORS)  */
+/* Targets the 5 buttons in the main horizontal row */
+div[data-testid*="stHorizontalBlock"] > div:nth-child(1) div.stButton > button:first-child {
+    background-color: #87CEEB; /* Blue */
+            
+}
+div[data-testid*="stHorizontalBlock"] > div:nth-child(2) div.stButton > button:first-child {
+    background-color: #0574eb; /* Green */
+}
+div[data-testid*="stHorizontalBlock"] > div:nth-child(3) div.stButton > button:first-child {
+    background-color: #1b0694; /* Red */
+}
+div[data-testid*="stHorizontalBlock"] > div:nth-child(4) div.stButton > button:first-child {
+    background-color: #345cc9; /* Light BLue */
+}
+div[data-testid*="stHorizontalBlock"] > div:nth-child(5) div.stButton > button:first-child {
+    background-color: #00008B; /* Blue */
+}
 
-    section[data-testid="stSidebar"] {
-        background: var(--sidebar-bg) !important;
-        color: var(--text-color) !important;
-    }
+.stToolbarActions{
+    display: none !important;            
+}
 
-    /* Light theme overrides */
-    @media (prefers-color-scheme: light) {
-        :root {
-            --primary-bg: #ffffff;
-            --secondary-bg: #f0f2f6;
-            --text-color: #31333F;
-            --sidebar-bg: #f0f2f6;
-        }
-    }
+/* Tool Button Hover Styles */
+div[data-testid*="stHorizontalBlock"] > div:nth-child(1) div.stButton > button:hover { background-color: #5DADE2; }
+div[data-testid*="stHorizontalBlock"] > div:nth-child(2) div.stButton > button:hover { background-color: #58D68D; }
+div[data-testid*="stHorizontalBlock"] > div:nth-child(3) div.stButton > button:hover { background-color: #EC7063; }
+div[data-testid*="stHorizontalBlock"] > div:nth-child(4) div.stButton > button:hover { background-color: #F7C584; }
+div[data-testid*="stHorizontalBlock"] > div:nth-child(5) div.stButton > button:hover { background-color: #C39BD3; }
 
-    /* Manual theme detection based on Streamlit's data attributes */
-    [data-theme="light"] .stApp {
-        background: var(--primary-bg) !important;
-        color: var(--text-color) !important;
-    }
 
-    [data-theme="light"] section[data-testid="stSidebar"] {
-        background: var(--sidebar-bg) !important;
-        color: var(--text-color) !important;
-    }
+/* 3. HOME BUTTON GRADIENT (The FIX: Uses !important) */
+/* Targets the Home button specifically in the HEADER area */
 
-    /* Text color fixes that work with both themes */
-    .stApp, .stApp * {
-        color: var(--text-color) !important;
-    }
+/* Default Gradient Style */
+div[data-testid="stVerticalBlock"] > div:first-child div[data-testid*="stHorizontalBlock"] > div:nth-last-child(1) div.stButton > button:first-child {
+    color: white !important; 
+    border: 1px solid #0056b3 !important; 
+    
+    /* THE GRADIENT - Using !important to FORCE override */
+    background: linear-gradient(180deg, #007BFF, #0056B3) !important;
+    
+    /* Size adjustments to make it small and distinct */
+    min-width: unset !important; /* Override 200px from section 1 */
+    padding: 5px 15px !important;
+    font-size: 16px !important;
+    
+    /* Ensure the background property is only the gradient */
+    background-color: transparent !important; 
+}
 
-    /* Specific component styling that respects themes */
-    .stButton > button {
-        color: white !important; /* Keep button text white */
-    }
-
-    /* Ensure dataframes and other components are readable */
-    .stDataFrame, .stTable {
-        background-color: var(--secondary-bg) !important;
-        color: var(--text-color) !important;
-    }
-
-    /* Fix for text input and other form elements */
-    .stTextInput > div > div > input,
-    .stTextArea > div > div > textarea,
-    .stSelectbox > div > div > select {
-        background-color: var(--secondary-bg) !important;
-        color: var(--text-color) !important;
-        border: 1px solid var(--text-color) !important;
-    }
-
-    /* Home button styling */
-    div[data-testid="stButton"] button[kind="secondary"] {
-        background-color: #2E86C1;
-        color: white;
-        font-size: 16px;
-        font-weight: 600;
-        border-radius: 12px;
-        padding: 10px 24px;
-        border: 2px solid #1B4F72;
-        transition: all 0.2s ease-in-out;
-    }
-
-    div[data-testid="stButton"] button[kind="secondary"]:hover {
-        background-color: #1B4F72;
-        border-color: #154360;
-        color: #FDFEFE;
-        transform: scale(1.05);
-    }
-
-    /* Tool button colors - adjusted for both themes */
-    div[data-testid*="stHorizontalBlock"] > div:nth-child(1) div.stButton > button:first-child {
-        background-color: #87CEEB !important;
-        color: black !important;
-    }
-
-    div[data-theme="light"] div[data-testid*="stHorizontalBlock"] > div:nth-child(1) div.stButton > button:first-child {
-        background-color: #1E88E5 !important;
-        color: white !important;
-    }
-
-    div[data-testid*="stHorizontalBlock"] > div:nth-child(2) div.stButton > button:first-child {
-        background-color: #87CEEB !important;
-        color: white !important;
-    }
-
-    div[data-testid*="stHorizontalBlock"] > div:nth-child(3) div.stButton > button:first-child {
-        background-color: #87CEEB !important;
-        color: white !important;
-    }
-
-    div[data-testid*="stHorizontalBlock"] > div:nth-child(4) div.stButton > button:first-child {
-        background-color: #87CEEB !important;
-        color: white !important;
-    }
-
-    div[data-testid*="stHorizontalBlock"] > div:nth-child(5) div.stButton > button:first-child {
-        background-color: #87CEEB !important;
-        color: white !important;
-    }
-
-    /* Fix for expanders and other containers */
-    .streamlit-expanderHeader {
-        background-color: var(--secondary-bg) !important;
-        color: var(--text-color) !important;
-    }
-
-    /* Make sure all text is readable */
-    p, h1, h2, h3, h4, h5, h6, div, span {
-        color: var(--text-color) !important;
-    }
-
-    /* Fix for success/warning/error messages */
-    .stAlert {
-        background-color: var(--secondary-bg) !important;
-        color: var(--text-color) !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+/* Hover Gradient Effect */
+div[data-testid="stVerticalBlock"] > div:first-child div[data-testid*="stHorizontalBlock"] > div:nth-last-child(1) div.stButton > button:hover {
+    /* Lighter gradient on hover */
+    background: linear-gradient(180deg, #0056B3, #007BFF) !important; 
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2) !important;
+    transition: background 0.3s, box-shadow 0.3s !important; 
+            
+}
+</style>
+""", unsafe_allow_html=True)
 if 'selected_tool' not in st.session_state:
     st.session_state.selected_tool = None
     
